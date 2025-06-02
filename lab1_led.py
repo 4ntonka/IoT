@@ -32,7 +32,6 @@ def main():
     print("Arduino LED Control")
     print("Commands: on, off, blink, status")
     ser = serial.Serial(PORT, BAUD_RATE, timeout=1)
-    input = 0
     while True:
         command = input("command > ").strip().lower()
         
@@ -46,18 +45,24 @@ def main():
             print("LED blink")
             send_command(blink_command)
         elif command == 'status':
-            input = ser.readline()
-            if input == 0:
-                print("LED on")
-            elif input == 1:
-                print("LED off")
-            elif input == 2:
-                print("LED blink")
+            ser.write(status_command.encode())
+            time.sleep(0.1)
+            if ser.in_waiting > 0:
+                state = ser.readline().decode().strip()
+                if state == '0':
+                    print("LED off")
+                elif state == '1':
+                    print("LED on")
+                elif state == '2':
+                    print("LED blink")
+                else:
+                    print(f"Unknown state: {state}")
         elif command in ['exit', 'quit']:
             print("Exiting program.")
             break
         else:
             print("Unknown command. Use: on, off, blink, status, exit, or quit.")
+    ser.close()
 
 if __name__ == "__main__":
     main()

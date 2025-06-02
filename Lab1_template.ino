@@ -37,13 +37,7 @@ void loop() {
       ledState = BLINK;
       Serial.println("LED blink");
     } else if (command == "status") {
-      if (ledState == ON) {
-        Serial.println("LED on");
-      } else if (ledState == OFF) {
-        Serial.println("LED off");
-      } else if (ledState == BLINK) {
-        Serial.println("LED blink");
-      }
+      Serial.println(ledState);  // Just return the state as a number (0, 1, or 2)
     } else {
       Serial.println("Unknown command. Use: on, off, blink, or status");
     }
