@@ -7,7 +7,7 @@ import serial
 import time
 
 # Serial port configuration
-PORT = '/dev/tty.usbmodem14101'  # Adjust this based on your system
+PORT = '/dev/ttyAMC0'  # Adjust this based on your system
 BAUD_RATE = 9600
 
 # LED commands
