@@ -33,13 +33,16 @@ def main():
     print("Commands: on, off, blink, status")
     
     while True:
-        command = input("Enter command: ").strip().lower()
+        command = input("command > ").strip().lower()
         
         if command == 'on':
+            print("LED on")
             send_command(on_command)
         elif command == 'off':
+            print("LED off")
             send_command(off_command)
         elif command == 'blink':
+            print("LED blink")
             send_command(blink_command)
         elif command == 'status':
             send_command(status_command)
@@ -50,4 +53,4 @@ def main():
             print("Unknown command. Use: on, off, blink, status, exit, or quit.")
 
 if __name__ == "__main__":
-    main()
+    main() 
