@@ -35,6 +35,9 @@ class Ui_Dialog(object):
         self.MplWidget = MplWidget(Dialog)
         self.MplWidget.setGeometry(QtCore.QRect(150, 10, 600, 220))
         self.MplWidget.setObjectName("MplWidget")
+        self.label_timer = QtWidgets.QLabel(Dialog)
+        self.label_timer.setGeometry(QtCore.QRect(20, 0, 66, 19))
+        self.label_timer.setObjectName("label_timer")
 
         self.retranslateUi(Dialog)
         self.buttonBox.accepted.connect(Dialog.accept) # type: ignore
@@ -46,4 +49,5 @@ class Ui_Dialog(object):
         Dialog.setWindowTitle(_translate("Dialog", "Dialog"))
         self.pushButton.setText(_translate("Dialog", "PushButton"))
         self.groupBox.setTitle(_translate("Dialog", "GroupBox"))
+        self.label_timer.setText(_translate("Dialog", "TextLabel"))
 from mplwidget import MplWidget
