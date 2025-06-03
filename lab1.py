@@ -34,6 +34,22 @@ class Lab1(QDialog):
         self.ui.MplWidget.canvas.axes.plot(self.x, self.y, 'r', linewidth=0.5)
         self.ui.MplWidget.canvas.draw()
 
+    # Timer functions
+    def showTime(self):
+        current_time=QDateTime.currentDateTime()
+        formatted_time=current_time.toString('yyyy-MM-dd hh:mm:ss dddd')
+        self.label.setText(formatted_time)
+
+    def startTimer(self):
+        self.timer.start(1000)
+        self.startBtn.setEnabled(False)
+        self.endBtn.setEnabled(True)
+
+    def endTimer(self):
+        self.timer.stop()
+        self.startBtn.setEnabled(True)
+        self.endBtn.setEnabled(False)
+
 if __name__ == "__main__":
     app = QApplication([])
     form = Lab1()

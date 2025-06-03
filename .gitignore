@@ -49,3 +49,6 @@ next-env.d.ts
 *.pyd
 arduino_led_controller.ui
 arduino_led_gui.py
+lab1_ui.cpython-313.pyc
+__pycache__/
+*.pyc
