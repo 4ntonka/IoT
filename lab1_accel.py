@@ -5,10 +5,8 @@ import numpy as np
 import matplotlib
 matplotlib.use("Qt5Agg")
 
-from PyQt5.QtWidgets import (QApplication, QDialog, QMessageBox, QPushButton, 
-                             QLabel, QGroupBox, QVBoxLayout, QFileDialog, 
-                             QSpinBox, QGridLayout)
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtWidgets import QApplication, QDialog, QMessageBox, QFileDialog
+from PyQt5.QtCore import QTimer
 from lab1_ui import Ui_Dialog
 from accelerometer_sensor import AccelerometerSensor
 
@@ -63,14 +61,8 @@ class Lab1(QDialog):
         self.ui.interval.setSuffix(" sec")
         self.ui.interval_label.setText("Measure time (s):")
         
-        # Add save button
-        self.ui.saveButton = QPushButton("Save to CSV", self)
-        self.ui.saveButton.setGeometry(10, 205, 100, 28)
+        # Connect save button
         self.ui.saveButton.clicked.connect(self.save_to_csv)
-        self.ui.saveButton.setEnabled(False)
-        
-        # Add statistics group
-        self.setup_statistics_ui()
 
     def init_plot(self):
         self.ui.MplWidget.canvas.axes.clear()
@@ -161,28 +153,7 @@ class Lab1(QDialog):
         elif filename:
             QMessageBox.warning(self, "Error", f"Failed to save data to {filename}")
     
-    def setup_statistics_ui(self):
-        # Create statistics panel
-        self.ui.statsGroupBox = QGroupBox("Statistics", self)
-        self.ui.statsGroupBox.setGeometry(10, 240, 130, 200)
-        layout = QVBoxLayout(self.ui.statsGroupBox)
-        
-        # Create labels for statistics
-        self.ui.meanLabel = QLabel("Mean:")
-        self.ui.meanXLabel = QLabel("X: 0.0000")
-        self.ui.meanYLabel = QLabel("Y: 0.0000")
-        self.ui.meanZLabel = QLabel("Z: 0.0000")
-        
-        self.ui.stdLabel = QLabel("Std Dev:")
-        self.ui.stdXLabel = QLabel("X: 0.0000")
-        self.ui.stdYLabel = QLabel("Y: 0.0000")
-        self.ui.stdZLabel = QLabel("Z: 0.0000")
-        
-        # Add labels to layout
-        for label in [self.ui.meanLabel, self.ui.meanXLabel, self.ui.meanYLabel, 
-                     self.ui.meanZLabel, self.ui.stdLabel, self.ui.stdXLabel, 
-                     self.ui.stdYLabel, self.ui.stdZLabel]:
-            layout.addWidget(label)
+
             
     def update_statistics(self):
         """Update the statistics display"""

@@ -116,13 +116,102 @@
         <rect>
           <x>20</x>
           <y>0</y>
-          <width>66</width>
+          <width>120</width>
           <height>19</height>
         </rect>
       </property>
       <property name="text">
-        <string>TextLabel</string>
+        <string>Status: Not Connected</string>
       </property>
+    </widget>
+    
+    <widget class="QPushButton" name="saveButton">
+      <property name="geometry">
+        <rect>
+          <x>10</x>
+          <y>205</y>
+          <width>100</width>
+          <height>28</height>
+        </rect>
+      </property>
+      <property name="text">
+        <string>Save to CSV</string>
+      </property>
+      <property name="enabled">
+        <bool>false</bool>
+      </property>
+    </widget>
+    
+    <widget class="QGroupBox" name="statsGroupBox">
+      <property name="geometry">
+        <rect>
+          <x>10</x>
+          <y>240</y>
+          <width>130</width>
+          <height>200</height>
+        </rect>
+      </property>
+      <property name="title">
+        <string>Statistics</string>
+      </property>
+      <layout class="QVBoxLayout" name="statsLayout">
+        <item>
+          <widget class="QLabel" name="meanLabel">
+            <property name="text">
+              <string>Mean:</string>
+            </property>
+          </widget>
+        </item>
+        <item>
+          <widget class="QLabel" name="meanXLabel">
+            <property name="text">
+              <string>X: 0.0000</string>
+            </property>
+          </widget>
+        </item>
+        <item>
+          <widget class="QLabel" name="meanYLabel">
+            <property name="text">
+              <string>Y: 0.0000</string>
+            </property>
+          </widget>
+        </item>
+        <item>
+          <widget class="QLabel" name="meanZLabel">
+            <property name="text">
+              <string>Z: 0.0000</string>
+            </property>
+          </widget>
+        </item>
+        <item>
+          <widget class="QLabel" name="stdLabel">
+            <property name="text">
+              <string>Std Dev:</string>
+            </property>
+          </widget>
+        </item>
+        <item>
+          <widget class="QLabel" name="stdXLabel">
+            <property name="text">
+              <string>X: 0.0000</string>
+            </property>
+          </widget>
+        </item>
+        <item>
+          <widget class="QLabel" name="stdYLabel">
+            <property name="text">
+              <string>Y: 0.0000</string>
+            </property>
+          </widget>
+        </item>
+        <item>
+          <widget class="QLabel" name="stdZLabel">
+            <property name="text">
+              <string>Z: 0.0000</string>
+            </property>
+          </widget>
+        </item>
+      </layout>
     </widget>
   </widget>
   <customwidgets>
