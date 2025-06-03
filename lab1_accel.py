@@ -61,15 +61,13 @@ class Lab1(QDialog):
                 QMessageBox.warning(self, "Error", "No serial ports found")
                 return
             
-            port = ports[0][0]
-            
-            if self.sensor.connect(port):
-                self.ui.label_timer.setText(f"Status: Connected to {port}")
+            if self.sensor.connect(PORT):
+                self.ui.label_timer.setText(f"Status: Connected to {PORT}")
                 self.sensor.start_reading()   
                 self.timer.start()
                 self.ui.pushButton.setText("Disconnect")
             else:
-                QMessageBox.critical(self, "Error", f"Failed to connect to {port}")
+                QMessageBox.critical(self, "Error", f"Failed to connect to {PORT}")
     
     def update_plot(self):
         if not self.sensor.connected or not self.sensor.reading:
