@@ -9,6 +9,8 @@ Handig om de UI en functionaliteit te testen zonder hardware!
 import sys
 import os
 import csv
+import math
+import time
 import random
 import numpy as np
 import matplotlib
@@ -64,15 +66,24 @@ class RandomSensor:
         )
     
     def generate_data(self):
-        """Genereert willekeurige data en update de arrays."""
-        x, y, z = random.uniform(-1, 1), random.uniform(-1, 1), random.uniform(-1, 1)
+        """Genereert vloeiendere data met sinus-golf en ruis"""
+        t = time.time()
+        new_x = math.sin(t) + random.uniform(-0.1, 0.1)
+        new_y = math.cos(t) + random.uniform(-0.1, 0.1)
+        new_z = math.sin(t + 1) + random.uniform(-0.1, 0.1)
+        
         self._x_data = np.roll(self._x_data, -1)
         self._y_data = np.roll(self._y_data, -1)
         self._z_data = np.roll(self._z_data, -1)
-        self._x_data[-1] = x
-        self._y_data[-1] = y
-        self._z_data[-1] = z
-        self._x_latest, self._y_latest, self._z_latest = x, y, z
+        
+        self._x_data[-1] = new_x
+        self._y_data[-1] = new_y
+        self._z_data[-1] = new_z
+        
+        self._x_latest, self._y_latest, self._z_latest = new_x, new_y, new_z
+
+
+
     
     def save_to_csv(self, filename):
         try:
@@ -100,7 +111,7 @@ class Lab1(QDialog):
         self.setWindowTitle("Accelerometer Data Visualization - Simulatie")
         
         self.sensor = RandomSensor(buffer_size=100)
-        self.max_x = self.ui.maxxaxis.value()
+        self.max_x = 10
         
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_plot)
@@ -160,7 +171,7 @@ class Lab1(QDialog):
         self.timer.setInterval(interval_ms)
     
     def update_max_xaxis(self):
-        self.max_x = self.ui.maxxaxis.value()
+        self.max_x = max(1, self.ui.maxxaxis.value())
         self.ui.MplWidget.canvas.axes.set_xlim(0, self.max_x)
     
     def update_statistics(self):
