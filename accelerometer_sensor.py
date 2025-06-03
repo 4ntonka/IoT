@@ -3,47 +3,47 @@ Accelerometer Sensor Module for Arduino Nano 33 IoT
 Handles serial communication with the Arduino and processes accelerometer data
 
 LSM6DS3 Accelerometer Specifications:
-- Measurement range: ±2/±4/±8/±16 g (configurable)
-- Sensitivity: 
-  - ±2g scale: 0.061 mg/LSB (0.000061 g/LSB)
-  - ±4g scale: 0.122 mg/LSB (0.000122 g/LSB)
-  - ±8g scale: 0.244 mg/LSB (0.000244 g/LSB)
-  - ±16g scale: 0.488 mg/LSB (0.000488 g/LSB)
-- Output data rate: 1.6 Hz to 6.7 kHz
+- Measurement range: ±2g (default configuration)
+- Sensitivity: 0.061 mg/LSB (0.000061 g/LSB) at ±2g scale
+- Output data rate: 20 Hz in our implementation
 
-Our application uses the default ±2g scale, so values are represented with
-4 decimal places to match the sensitivity of 0.061 mg/LSB.
+Values are represented with 4 decimal places to match the sensor sensitivity.
 """
 
-import serial
-import serial.tools.list_ports
+import os
+import csv
 import time
 import threading
 import numpy as np
+import serial
+import serial.tools.list_ports
 
 
 class AccelerometerSensor:
-    """Class to handle accelerometer sensor data from Arduino"""
+    """Class to handle accelerometer sensor data from Arduino Nano 33 IoT"""
     
     def __init__(self, buffer_size=100):
-        """Initialize the sensor with a buffer of specified size"""
+        """Initialize the sensor with a buffer of specified size
+        
+        Args:
+            buffer_size: Number of samples to store in the buffer
+        """
+        # Connection properties
         self._port = None
         self._serial = None
         self._connected = False
         self._reading = False
         self._buffer_size = buffer_size
         
-        # Initialize data buffers with zeros
+        # Data storage
         self._x_data = np.zeros(buffer_size)
         self._y_data = np.zeros(buffer_size)
         self._z_data = np.zeros(buffer_size)
-        
-        # Latest readings
         self._x_latest = 0.0
         self._y_latest = 0.0
         self._z_latest = 0.0
         
-        # Thread for reading data
+        # Threading control
         self._thread = None
         self._stop_event = threading.Event()
     
@@ -106,40 +106,17 @@ class AccelerometerSensor:
         self._connected = False
     
     def _read_data(self):
-        """Read data from the serial port in a separate thread"""
+        """Read data from the serial port in a background thread"""
         while not self._stop_event.is_set():
+            # Skip if not connected
             if not self._connected or self._serial is None:
                 time.sleep(0.1)
                 continue
             
             try:
-                # Check if data is available
+                # Process data if available
                 if self._serial.in_waiting > 0:
-                    line = self._serial.readline().decode('utf-8').strip()
-                    parts = line.split(',')
-                    if len(parts) == 3:
-                        try:
-                            x = float(parts[0])
-                            y = float(parts[1])
-                            z = float(parts[2])
-                            
-                            # Update latest values
-                            self._x_latest = x
-                            self._y_latest = y
-                            self._z_latest = z
-                            
-                            # Shift data in the buffer
-                            self._x_data = np.roll(self._x_data, -1)
-                            self._y_data = np.roll(self._y_data, -1)
-                            self._z_data = np.roll(self._z_data, -1)
-                            
-                            # Add new values at the end
-                            self._x_data[-1] = x
-                            self._y_data[-1] = y
-                            self._z_data[-1] = z
-                        except ValueError:
-                            # Skip invalid data
-                            pass
+                    self._process_serial_data()
                 
                 # Small delay to prevent high CPU usage
                 time.sleep(0.01)
@@ -148,6 +125,40 @@ class AccelerometerSensor:
                 print(f"Error reading data: {e}")
                 self._connected = False
                 break
+                
+    def _process_serial_data(self):
+        """Process a line of data from the serial port"""
+        line = self._serial.readline().decode('utf-8').strip()
+        parts = line.split(',')
+        
+        # Check if we have valid x,y,z data
+        if len(parts) == 3:
+            try:
+                # Parse the values
+                x, y, z = map(float, parts)
+                
+                # Update latest values
+                self._x_latest, self._y_latest, self._z_latest = x, y, z
+                
+                # Update circular buffers
+                for data, value in [(self._x_data, x), 
+                                   (self._y_data, y), 
+                                   (self._z_data, z)]:
+                    data = np.roll(data, -1)
+                    data[-1] = value
+                
+                self._x_data = np.roll(self._x_data, -1)
+                self._y_data = np.roll(self._y_data, -1)
+                self._z_data = np.roll(self._z_data, -1)
+                
+                # Add new values at the end
+                self._x_data[-1] = x
+                self._y_data[-1] = y
+                self._z_data[-1] = z
+                
+            except ValueError:
+                # Skip invalid data
+                pass
     
     def start_reading(self):
         """Start reading data from the serial port"""
@@ -179,3 +190,65 @@ class AccelerometerSensor:
         """Flush the serial input buffer to get fresh data"""
         if self._connected and self._serial is not None:
             self._serial.reset_input_buffer()
+            
+    def save_to_csv(self, filename):
+        """Save current sensor data to a CSV file
+        
+        Args:
+            filename: Path to the CSV file to save data to
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Create directory if it doesn't exist
+            directory = os.path.dirname(filename)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory)
+                
+            # Write data to CSV
+            with open(filename, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(['Sample', 'X', 'Y', 'Z'])  # Header
+                
+                # Use numpy's array capabilities for efficiency
+                data = np.column_stack((
+                    np.arange(len(self._x_data)),
+                    self._x_data,
+                    self._y_data,
+                    self._z_data
+                ))
+                
+                # Write all rows at once
+                writer.writerows(data)
+                    
+            return True
+        except Exception as e:
+            print(f"Error saving to CSV: {e}")
+            return False
+            
+    @property
+    def mean_values(self):
+        """Calculate mean values for each axis
+        
+        Returns:
+            tuple: (x_mean, y_mean, z_mean)
+        """
+        return (
+            np.mean(self._x_data),
+            np.mean(self._y_data),
+            np.mean(self._z_data)
+        )
+        
+    @property
+    def std_values(self):
+        """Calculate standard deviation values for each axis
+        
+        Returns:
+            tuple: (x_std, y_std, z_std)
+        """
+        return (
+            np.std(self._x_data),
+            np.std(self._y_data),
+            np.std(self._z_data)
+        )
