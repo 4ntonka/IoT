@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+import serial
+
+
 import sys
 import numpy as np
 from PyQt5.QtWidgets import *
@@ -10,6 +14,8 @@ from PyQt5.QtWidgets import QDialog, QMessageBox
 from PyQt5.QtCore import QTimer
 from accelerometer_sensor import AccelerometerSensor
 
+PORT = '/dev/ttyACM0'
+BAUD_RATE = 9600
 
 class Lab1(QDialog):
     def __init__(self, *args):
