@@ -16,7 +16,6 @@ import sys
 import os
 import time
 import csv
-import random
 import threading
 import numpy as np
 import serial
@@ -274,8 +273,6 @@ class Lab1(QDialog):
         
         self.update_interval = self.ui.interval.value()  # in ms
         self.max_x = self.ui.maxxaxis.value()
-        self.simulating = False
-
         
         # Setup timers
         self.setup_timers()
@@ -308,12 +305,13 @@ class Lab1(QDialog):
         self.ui.pushButton.clicked.connect(self.toggle_acquisition)
         self.ui.interval.valueChanged.connect(self.update_timer_interval)
         self.ui.maxxaxis.valueChanged.connect(self.update_max_xaxis)
-        self.ui.simulate_button.clicked.connect(self.toggle_simulation)
         
         # Configure interval spinner
         self.ui.interval.setRange(1, 300)
         self.ui.interval.setValue(60)
-        self.update_timer_interval()
+        self.ui.interval.setSuffix(" sec")
+        self.ui.interval_label.setText("Measure time (s):")
+        
         # Connect save button
         self.ui.saveButton.clicked.connect(self.save_to_csv)
 
@@ -351,58 +349,29 @@ class Lab1(QDialog):
                 self.ui.saveButton.setEnabled(True)
             else:
                 QMessageBox.critical(self, "Error", f"Failed to connect to {PORT}")
-
-    def toggle_simulation(self):
-        if not self.timer.isActive():
-            self.timer.start()
-            self.simulating = True
-            self.ui.simulate_button.setText("X")
-        else:
-            self.timer.stop()
-            self.simulating = False
-            self.ui.simulate_button.setText("S")
-
-
+    
     def update_plot(self):
         """Update the plot with new sensor data"""
-        if self.simulating:
-            # Genereer random data
-            x = random.uniform(-1, 1)
-            y = random.uniform(-1, 1)
-            z = random.uniform(-1, 1)
-
-            self.sensor._x_data = np.roll(self.sensor._x_data, -1)
-            self.sensor._y_data = np.roll(self.sensor._y_data, -1)
-            self.sensor._z_data = np.roll(self.sensor._z_data, -1)
-
-            self.sensor._x_data[-1] = x
-            self.sensor._y_data[-1] = y
-            self.sensor._z_data[-1] = z
-
-            self.sensor._x_latest, self.sensor._y_latest, self.sensor._z_latest = x, y, z
-
-        if not (self.simulating or (self.sensor.connected and self.sensor.reading)):
+        if not self.sensor.connected or not self.sensor.reading:
             return
-
         x_data = self.sensor.x_data[-self.max_x:]
         y_data = self.sensor.y_data[-self.max_x:]
         z_data = self.sensor.z_data[-self.max_x:]
         samples = np.arange(len(x_data))
-
-        # Update plot lines
+        # Update plot lines with sensor data
         self.x_line.set_data(samples, x_data)
         self.y_line.set_data(samples, y_data)
         self.z_line.set_data(samples, z_data)
 
-        # Update labels
+        
+        # Update current values display if not in measurement mode
         if not self.measurement_timer.isActive():
             x, y, z = self.sensor.latest_values
             self.ui.label_timer.setText(f"X: {x:.4f} g, Y: {y:.4f} g, Z: {z:.4f} g")
-
-        # Redraw
+        
+        # Update statistics and redraw
         self.update_statistics()
         self.ui.MplWidget.canvas.draw()
-
     
     def update_timer_display(self):
         """Update the timer display each second"""
@@ -413,7 +382,7 @@ class Lab1(QDialog):
             self.update_timer.stop()
 
     def update_timer_interval(self):
-        self.update_interval = self.ui.interval.value() * 1000
+        self.update_interval = self.ui.interval.value()
         self.timer.setInterval(self.update_interval)
         
     def update_max_xaxis(self):
@@ -452,9 +421,9 @@ class Lab1(QDialog):
             
     def update_statistics(self):
         """Update the statistics display"""
-        if not (self.sensor.connected or self.simulating):
+        if not self.sensor.connected:
             return
-
+        
         # Update mean values
         x_mean, y_mean, z_mean = self.sensor.mean_values
         x_std, y_std, z_std = self.sensor.std_values
