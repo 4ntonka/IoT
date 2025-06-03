@@ -52,3 +52,5 @@ arduino_led_gui.py
 lab1_ui.cpython-313.pyc
 __pycache__/
 *.pyc
+
+.vscode
