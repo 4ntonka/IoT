@@ -21,10 +21,13 @@ class Lab1(QDialog):
         # self.ui.verticalLayout.addWidget(NavigationToolbar(self.ui.MplWidget.canvas, self))
         # self.ui.MplWidget.setLayout(self.ui.verticalLayout)
 
-        self.x = list(range(50)) 
-        self.y = [random.randint(0, 10) for _ in range(50)] 
+        self.x = list(range(1, 11)) 
+        self.y = [random.uniform(0, 1) for _ in self.x] 
 
         self.ui.pushButton.clicked.connect(self.mybuttonfunction)
+        
+        # Display initial plot when application starts
+        self.mybuttonfunction()
 
     def mybuttonfunction(self):
         self.ui.MplWidget.canvas.axes.clear()
