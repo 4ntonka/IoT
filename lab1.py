@@ -18,15 +18,12 @@ class Lab1(QDialog):
         self.ui.setupUi(self)
         self.setWindowTitle("arduino_sensors")
         self.remaining_time = 10
-
         self.x = list(range(1, 11)) 
         self.y = [random.uniform(0, 1) for _ in self.x] 
-
         self.ui.pushButton.clicked.connect(self.toggle_timer)
         self.timer = QTimer()
-        self.timer.setInterval(500)  # 500 ms = 0,5 seconden
+        self.timer.setInterval(500)
         self.timer.timeout.connect(self.mybuttonfunction)
-        # Display initial plot when application starts
         self.mybuttonfunction()
 
     def mybuttonfunction(self):
@@ -35,7 +32,6 @@ class Lab1(QDialog):
             self.ui.label_timer.setText(f"{self.remaining_time} seconds")
         if self.remaining_time == 0:
             self.timer.stop()
-        # Update plot (optioneel)
         new_value = random.uniform(0, 1)
         self.y.append(new_value)
         if len(self.y) > 10:
