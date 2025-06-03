@@ -271,6 +271,9 @@ class Lab1(QDialog):
         self.samples = np.arange(100)
         self.remaining_time = 0
         
+        self.update_interval = self.ui.interval.value()  # in ms
+        self.max_x = self.ui.maxxaxis.value()
+        
         # Setup timers
         self.setup_timers()
         
@@ -300,6 +303,8 @@ class Lab1(QDialog):
         # Configure button
         self.ui.pushButton.setText("Connect")
         self.ui.pushButton.clicked.connect(self.toggle_acquisition)
+        self.ui.interval.valueChanged.connect(self.update_timer_interval)
+        self.ui.maxxaxis.valueChanged.connect(self.update_max_xaxis)
         
         # Configure interval spinner
         self.ui.interval.setRange(1, 300)
@@ -349,11 +354,15 @@ class Lab1(QDialog):
         """Update the plot with new sensor data"""
         if not self.sensor.connected or not self.sensor.reading:
             return
-            
+        x_data = self.sensor.x_data[-self.max_x:]
+        y_data = self.sensor.y_data[-self.max_x:]
+        z_data = self.sensor.z_data[-self.max_x:]
+        samples = np.arange(len(x_data))
         # Update plot lines with sensor data
-        self.x_line.set_data(self.samples, self.sensor.x_data)
-        self.y_line.set_data(self.samples, self.sensor.y_data)
-        self.z_line.set_data(self.samples, self.sensor.z_data)
+        self.x_line.set_data(samples, x_data)
+        self.y_line.set_data(samples, y_data)
+        self.z_line.set_data(samples, z_data)
+
         
         # Update current values display if not in measurement mode
         if not self.measurement_timer.isActive():
@@ -371,6 +380,15 @@ class Lab1(QDialog):
             self.ui.label_timer.setText(f"Measuring: {self.remaining_time} seconds remaining")
         else:
             self.update_timer.stop()
+
+    def update_timer_interval(self):
+        self.update_interval = self.ui.interval.value()
+        self.timer.setInterval(self.update_interval)
+        
+    def update_max_xaxis(self):
+        self.max_x = self.ui.maxxaxis.value()
+        self.samples = np.arange(self.max_x)
+        self.ui.MplWidget.canvas.axes.set_xlim(0, self.max_x)
     
     def stop_measurement(self):
         """Stop the measurement and reset UI"""
