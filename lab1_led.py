@@ -6,28 +6,24 @@ This script controls an LED on an Arduino board using serial communication.
 import serial
 import time
 
-# Serial port configuration
-PORT = '/dev/ttyACM0'  # Adjust this based on your system
+PORT = '/dev/ttyACM0'
 BAUD_RATE = 9600
 
-# LED commands
 on_command = 'on\n'
 off_command = 'off\n'
 blink_command = 'blink\n'
 status_command = 'status\n'
 
-# Function to send a command to the Arduino
 def send_command(command):
     try:
         ser = serial.Serial(PORT, BAUD_RATE, timeout=1)
         ser.write(command.encode())
-        time.sleep(0.1)  # Wait for the Arduino to process the command
+        time.sleep(0.1)
         ser.close()
     except serial.SerialException as e:
         print(f"Error: {e}")
         print("Make sure the Arduino is connected and the port is correct.")
 
-# Main function
 def main():
     print("Arduino LED Control")
     print("Commands: on, off, blink, status")
