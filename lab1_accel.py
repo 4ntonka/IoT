@@ -17,6 +17,7 @@ import os
 import time
 import csv
 import threading
+from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot # Import QThread and signals/slots
 import numpy as np
 import serial
 import serial.tools.list_ports
@@ -259,6 +260,52 @@ class AccelerometerSensor:
             return False
 
 
+# Multi-threading for updating plot and statistics
+class PlotUpdateWorker(QThread):
+    update_finished = pyqtSignal(np.ndarray, np.ndarray, np.ndarray)
+    stats_finished = pyqtSignal(tuple, tuple)
+    
+    def __init__(self, sensor):
+        super().__init__()
+        self.sensor = sensor
+        self.running = True
+    
+    def run(self):
+        while self.running and self.sensor.connected and self.sensor.reading:
+            # Get data from sensor
+            x_data = self.sensor.x_data.copy()
+            y_data = self.sensor.y_data.copy()
+            z_data = self.sensor.z_data.copy()
+            
+            # Calculate statistics
+            mean_values = self.sensor.mean_values
+            std_values = self.sensor.std_values
+            
+            # Emit signals with data
+            self.update_finished.emit(x_data, y_data, z_data)
+            self.stats_finished.emit(mean_values, std_values)
+            
+            # Sleep to reduce CPU usage
+            time.sleep(0.1)
+    
+    def stop(self):
+        self.running = False
+
+
+# Multi-threading for saving CSV files
+class CsvSaveWorker(QThread):
+    save_finished = pyqtSignal(bool, str)
+    
+    def __init__(self, sensor, filename):
+        super().__init__()
+        self.sensor = sensor
+        self.filename = filename
+    
+    def run(self):
+        success = self.sensor.save_to_csv(self.filename)
+        self.save_finished.emit(success, self.filename)
+
+
 class Lab1(QDialog):
     def __init__(self, *args):
         super().__init__()
@@ -270,6 +317,10 @@ class Lab1(QDialog):
         self.sensor = AccelerometerSensor(buffer_size=100)
         self.samples = np.arange(100)
         self.remaining_time = 0
+        
+        # Initialize worker threads
+        self.plot_worker = None
+        self.csv_worker = None
         
         # Setup timers
         self.setup_timers()
@@ -332,36 +383,53 @@ class Lab1(QDialog):
             if self.sensor.connect(PORT):
                 self.ui.label_timer.setText(f"Status: Connected to {PORT}")
                 self.sensor.start_reading()   
+                
+                # Start worker thread for plot updates
+                self.start_worker_thread()
+                
+                # Start UI update timer (lightweight)
                 self.timer.start()
+                
                 self.remaining_time = self.ui.interval.value()
                 if self.remaining_time > 0:
                     self.ui.label_timer.setText(f"Measuring: {self.remaining_time} seconds remaining")
                     self.measurement_timer.start(self.remaining_time * 1000)
                     self.update_timer.start()
+                    
                 self.ui.pushButton.setText("Stop")
                 self.ui.pushButton.setStyleSheet("background-color: red;")
                 self.ui.interval.setEnabled(False)
                 self.ui.saveButton.setEnabled(True)
             else:
                 QMessageBox.critical(self, "Error", f"Failed to connect to {PORT}")
+                
+    def start_worker_thread(self):
+        # Create and start the worker thread for plot updates
+        if self.plot_worker is None or not self.plot_worker.isRunning():
+            self.plot_worker = PlotUpdateWorker(self.sensor)
+            self.plot_worker.update_finished.connect(self.update_plot_data)
+            self.plot_worker.stats_finished.connect(self.update_stats_data)
+            self.plot_worker.start()
     
     def update_plot(self):
-        """Update the plot with new sensor data"""
+        """Lightweight method to trigger UI updates from the main thread timer"""
         if not self.sensor.connected or not self.sensor.reading:
             return
             
-        # Update plot lines with sensor data
-        self.x_line.set_data(self.samples, self.sensor.x_data)
-        self.y_line.set_data(self.samples, self.sensor.y_data)
-        self.z_line.set_data(self.samples, self.sensor.z_data)
-        
         # Update current values display if not in measurement mode
         if not self.measurement_timer.isActive():
             x, y, z = self.sensor.latest_values
             self.ui.label_timer.setText(f"X: {x:.4f} g, Y: {y:.4f} g, Z: {z:.4f} g")
+    
+    @pyqtSlot(np.ndarray, np.ndarray, np.ndarray)
+    def update_plot_data(self, x_data, y_data, z_data):
+        """Update plot with data from worker thread"""
+        # Update plot lines with sensor data
+        self.x_line.set_data(self.samples, x_data)
+        self.y_line.set_data(self.samples, y_data)
+        self.z_line.set_data(self.samples, z_data)
         
-        # Update statistics and redraw
-        self.update_statistics()
+        # Redraw canvas - this is the UI operation that needs to be in main thread
         self.ui.MplWidget.canvas.draw()
     
     def update_timer_display(self):
@@ -378,6 +446,13 @@ class Lab1(QDialog):
         self.measurement_timer.stop()
         self.update_timer.stop()
         
+        # Stop worker thread
+        if self.plot_worker is not None and self.plot_worker.isRunning():
+            self.plot_worker.stop()
+            self.plot_worker.wait(1000)  # Wait up to 1 second for the thread to finish
+            if self.plot_worker.isRunning():
+                self.plot_worker.terminate()  # Force termination if needed
+        
         if self.sensor.connected:
             self.sensor.stop_reading()
             self.sensor.disconnect()
@@ -388,27 +463,49 @@ class Lab1(QDialog):
         self.ui.interval.setEnabled(True)
     
     def save_to_csv(self):
-        """Save current sensor data to a CSV file"""
+        """Save current sensor data to a CSV file using a worker thread"""
         filename, _ = QFileDialog.getSaveFileName(
             self, "Save Data to CSV", 
             os.path.expanduser("~/Documents/accelerometer_data.csv"),
             "CSV Files (*.csv);;All Files (*)")
         
-        if filename and self.sensor.save_to_csv(filename):
+        if filename:
+            # Create progress dialog
+            self.ui.pushButton.setEnabled(False)  # Disable UI elements during save
+            self.ui.saveButton.setEnabled(False)
+            self.ui.label_timer.setText("Saving data to CSV...")
+            
+            # Create and start worker thread
+            self.csv_worker = CsvSaveWorker(self.sensor, filename)
+            self.csv_worker.save_finished.connect(self.on_csv_save_finished)
+            self.csv_worker.start()
+    
+    @pyqtSlot(bool, str)
+    def on_csv_save_finished(self, success, filename):
+        """Handle CSV save completion"""
+        # Re-enable UI elements
+        self.ui.pushButton.setEnabled(True)
+        self.ui.saveButton.setEnabled(True)
+        
+        # Show result message
+        if success:
             QMessageBox.information(self, "Success", f"Data saved to {filename}")
-        elif filename:
+            self.ui.label_timer.setText("Status: Connected")
+        else:
             QMessageBox.warning(self, "Error", f"Failed to save data to {filename}")
+            self.ui.label_timer.setText("Status: Error saving data")
     
 
             
-    def update_statistics(self):
-        """Update the statistics display"""
+    @pyqtSlot(tuple, tuple)
+    def update_stats_data(self, mean_values, std_values):
+        """Update statistics display with data from worker thread"""
         if not self.sensor.connected:
             return
         
-        # Update mean values
-        x_mean, y_mean, z_mean = self.sensor.mean_values
-        x_std, y_std, z_std = self.sensor.std_values
+        # Unpack values
+        x_mean, y_mean, z_mean = mean_values
+        x_std, y_std, z_std = std_values
         
         # Update labels
         labels = [
@@ -427,8 +524,17 @@ class Lab1(QDialog):
     
     def closeEvent(self, event):
         """Handle window close event"""
+        # Stop any running worker threads
+        if self.plot_worker is not None and self.plot_worker.isRunning():
+            self.plot_worker.stop()
+            self.plot_worker.wait(1000)  # Wait up to 1 second for the thread to finish
+        
+        if self.csv_worker is not None and self.csv_worker.isRunning():
+            self.csv_worker.wait(1000)  # Wait for CSV save to complete
+        
         if self.sensor.connected:
             self.sensor.disconnect()
+        
         event.accept()
 
 if __name__ == "__main__":
