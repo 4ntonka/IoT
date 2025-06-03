@@ -164,7 +164,7 @@ class Lab1(QDialog):
     def setup_statistics_ui(self):
         # Create statistics panel
         self.ui.statsGroupBox = QGroupBox("Statistics", self)
-        self.ui.statsGroupBox.setGeometry(10, 240, 130, 150)
+        self.ui.statsGroupBox.setGeometry(10, 240, 130, 200)
         layout = QVBoxLayout(self.ui.statsGroupBox)
         
         # Create labels for statistics
