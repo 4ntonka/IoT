@@ -417,7 +417,20 @@ class Lab1(QDialog):
         """Lightweight method to trigger UI updates from the main thread timer"""
         if not self.sensor.connected or not self.sensor.reading:
             return
-            
+        
+        # Lees laatste data direct op
+        x_data = self.sensor.x_data[-self.max_x:]
+        y_data = self.sensor.y_data[-self.max_x:]
+        z_data = self.sensor.z_data[-self.max_x:]
+        samples = np.arange(len(x_data))
+
+        # Update de plot direct
+        self.x_line.set_data(samples, x_data)
+        self.y_line.set_data(samples, y_data)
+        self.z_line.set_data(samples, z_data)
+        self.ui.MplWidget.canvas.axes.set_xlim(0, self.max_x)
+        self.ui.MplWidget.canvas.draw_idle()
+
         # Update current values display if not in measurement mode
         if not self.measurement_timer.isActive():
             x, y, z = self.sensor.latest_values
