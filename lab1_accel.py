@@ -26,7 +26,7 @@ matplotlib.use("Qt5Agg")
 
 from PyQt5.QtWidgets import QApplication, QDialog, QMessageBox, QFileDialog
 from PyQt5.QtCore import QTimer
-from lab1_ui import Ui_Dialog
+from lab12_ui import Ui_Dialog
 
 PORT = '/dev/ttyACM0'
 BAUD_RATE = 9600
@@ -315,6 +315,7 @@ class Lab1(QDialog):
         
         # Setup sensor and data structures
         self.sensor = AccelerometerSensor(buffer_size=100)
+        self.max_x = 10
         self.samples = np.arange(100)
         self.remaining_time = 0
         
@@ -334,7 +335,6 @@ class Lab1(QDialog):
     def setup_timers(self):
         # Plot update timer
         self.timer = QTimer()
-        self.timer.setInterval(100)
         self.timer.timeout.connect(self.update_plot)
         
         # Measurement duration timer
@@ -349,16 +349,13 @@ class Lab1(QDialog):
     
     def setup_ui_elements(self):
         # Configure button
-        self.ui.pushButton.setText("Connect")
+        self.ui.pushButton.setText("Start")
         self.ui.pushButton.clicked.connect(self.toggle_acquisition)
         self.ui.interval.valueChanged.connect(self.update_timer_interval)
         self.ui.maxxaxis.valueChanged.connect(self.update_max_xaxis)
         
         # Configure interval spinner
-        self.ui.interval.setRange(1, 300)
-        self.ui.interval.setValue(60)
-        self.ui.interval.setSuffix(" sec")
-        self.ui.interval_label.setText("Measure time (s):")
+        self.ui.interval.setRange(0, 300)
         
         # Connect save button
         self.ui.saveButton.clicked.connect(self.save_to_csv)
@@ -368,7 +365,7 @@ class Lab1(QDialog):
         self.ui.MplWidget.canvas.axes.set_title('Accelerometer Data')
         self.ui.MplWidget.canvas.axes.set_xlabel('Sample')
         self.ui.MplWidget.canvas.axes.set_ylabel('Acceleration (g)')
-        self.ui.MplWidget.canvas.axes.set_xlim(0, 100)
+        self.ui.MplWidget.canvas.axes.set_xlim(0, self.max_x)
         self.ui.MplWidget.canvas.axes.set_ylim(-2, 2)
         self.ui.MplWidget.canvas.axes.grid(True)
         self.x_line, = self.ui.MplWidget.canvas.axes.plot([], [], 'r-', label='X-axis', linewidth=1)
@@ -377,6 +374,7 @@ class Lab1(QDialog):
         self.ui.MplWidget.canvas.axes.legend(loc='upper right')
         self.ui.MplWidget.canvas.draw()
         self.ui.label_timer.setText("Status: Not Connected")
+        self.update_plot()
     
     def toggle_acquisition(self):
         if self.sensor.connected:
@@ -385,14 +383,14 @@ class Lab1(QDialog):
             if self.sensor.connect(PORT):
                 self.ui.label_timer.setText(f"Status: Connected to {PORT}")
                 self.sensor.start_reading()   
-                
+                self.update_plot()
                 # Start worker thread for plot updates
                 self.start_worker_thread()
                 
                 # Start UI update timer (lightweight)
                 self.timer.start()
                 
-                self.remaining_time = self.ui.interval.value()
+                self.remaining_time = self.ui.mtime.value()
                 if self.remaining_time > 0:
                     self.ui.label_timer.setText(f"Measuring: {self.remaining_time} seconds remaining")
                     self.measurement_timer.start(self.remaining_time * 1000)
@@ -401,6 +399,7 @@ class Lab1(QDialog):
                 self.ui.pushButton.setText("Stop")
                 self.ui.pushButton.setStyleSheet("background-color: red;")
                 self.ui.interval.setEnabled(False)
+                self.ui.mtime.setEnabled(False)
                 self.ui.saveButton.setEnabled(True)
             else:
                 QMessageBox.critical(self, "Error", f"Failed to connect to {PORT}")
@@ -432,7 +431,7 @@ class Lab1(QDialog):
         self.z_line.set_data(self.samples, z_data)
         
         # Redraw canvas - this is the UI operation that needs to be in main thread
-        self.ui.MplWidget.canvas.draw()
+        self.ui.MplWidget.canvas.draw_idle()
     
     def update_timer_display(self):
         """Update the timer display each second"""
@@ -443,11 +442,11 @@ class Lab1(QDialog):
             self.update_timer.stop()
 
     def update_timer_interval(self):
-        self.update_interval = self.ui.interval.value()
-        self.timer.setInterval(self.update_interval)
+        interval_ms = self.ui.interval.value() * 1000
+        self.timer.setInterval(interval_ms)
         
     def update_max_xaxis(self):
-        self.max_x = self.ui.maxxaxis.value()
+        self.max_x = max(1, self.ui.maxxaxis.value())
         self.samples = np.arange(self.max_x)
         self.ui.MplWidget.canvas.axes.set_xlim(0, self.max_x)
     
