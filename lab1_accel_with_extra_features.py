@@ -430,7 +430,7 @@ class Lab1(QDialog):
         self.y_line.set_data(samples, y_data)
         self.z_line.set_data(samples, z_data)
         self.ui.MplWidget.canvas.axes.set_xlim(0, self.max_x)
-        self.ui.MplWidget.canvas.draw()
+        self.ui.MplWidget.canvas.draw_idle()
 
         # Update current values display if not in measurement mode
         if not self.measurement_timer.isActive():
@@ -440,14 +440,12 @@ class Lab1(QDialog):
     @pyqtSlot(np.ndarray, np.ndarray, np.ndarray)
     def update_plot_data(self, x_data, y_data, z_data):
         """Update plot with data from worker thread"""
-        samples = np.arange(self.max_x)
-
-        # ➜ Altijd de laatste max_x samples tekenen
-        self.x_line.set_data(samples, x_data[-self.max_x:])
-        self.y_line.set_data(samples, y_data[-self.max_x:])
-        self.z_line.set_data(samples, z_data[-self.max_x:])
-
-        self.ui.MplWidget.canvas.axes.set_xlim(0, self.max_x)
+        # Update plot lines with sensor data
+        self.x_line.set_data(self.samples, x_data)
+        self.y_line.set_data(self.samples, y_data)
+        self.z_line.set_data(self.samples, z_data)
+        
+        # Redraw canvas - this is the UI operation that needs to be in main thread
         self.ui.MplWidget.canvas.draw()
     
     def update_timer_display(self):

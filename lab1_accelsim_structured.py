@@ -1,7 +1,8 @@
+
 #!/usr/bin/env python3
 """
 Simulated Accelerometer Data Visualization
-Dit bestand volgt de structuur van lab1_accel.py, maar gebruikt random data.
+Exact dezelfde structuur als lab1_accel.py, maar gebruikt random data.
 """
 
 import sys
@@ -9,20 +10,19 @@ import os
 import time
 import csv
 import threading
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot
 import numpy as np
 import math
 import random
 import matplotlib
 matplotlib.use("Qt5Agg")
 
-from PyQt5.QtWidgets import QApplication, QDialog, QFileDialog
+from PyQt5.QtWidgets import QApplication, QDialog, QMessageBox, QFileDialog
 from PyQt5.QtCore import QTimer
 from lab1_ui import Ui_Dialog
 
 
 class SimulatedSensor:
-    """Simuleert een accelerometer met willekeurige data."""
     def __init__(self, buffer_size=100):
         self._buffer_size = buffer_size
         self._x_data = np.zeros(buffer_size)
@@ -63,6 +63,13 @@ class SimulatedSensor:
             np.std(self._y_data),
             np.std(self._z_data)
         )
+
+    def start_reading(self):
+        # Geen hardware connectie nodig in simulatie
+        return True
+
+    def stop_reading(self):
+        pass
 
     def generate_data(self):
         t = time.time()
@@ -113,7 +120,6 @@ class PlotUpdateWorker(QThread):
             x_data = self.sensor.x_data.copy()
             y_data = self.sensor.y_data.copy()
             z_data = self.sensor.z_data.copy()
-
             mean_values = self.sensor.mean_values
             std_values = self.sensor.std_values
 
@@ -125,20 +131,39 @@ class PlotUpdateWorker(QThread):
         self.running = False
 
 
+class CsvSaveWorker(QThread):
+    save_finished = pyqtSignal(bool, str)
+
+    def __init__(self, sensor, filename):
+        super().__init__()
+        self.sensor = sensor
+        self.filename = filename
+
+    def run(self):
+        success = self.sensor.save_to_csv(self.filename)
+        self.save_finished.emit(success, self.filename)
+
+
 class Lab1(QDialog):
     def __init__(self):
         super().__init__()
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
-        self.setWindowTitle("Accelerometer Data Visualization - Simulated")
+        self.setWindowTitle("Simulated Accelerometer Data Visualization")
 
         self.sensor = SimulatedSensor(buffer_size=100)
         self.max_x = 10
         self.samples = np.arange(100)
         self.plot_worker = None
+        self.csv_worker = None
 
+        self.setup_timers()
         self.setup_ui_elements()
         self.init_plot()
+
+    def setup_timers(self):
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_plot)
 
     def setup_ui_elements(self):
         self.ui.pushButton.setText("Start")
@@ -171,18 +196,8 @@ class Lab1(QDialog):
         self.plot_worker.update_finished.connect(self.update_plot)
         self.plot_worker.stats_finished.connect(self.update_stats)
         self.plot_worker.start()
-
-        # ➜ Direct al 1 keer updaten met data (voorkom “dood” gevoel)
-        self.sensor.generate_data()
-        x_data = self.sensor.x_data.copy()
-        y_data = self.sensor.y_data.copy()
-        z_data = self.sensor.z_data.copy()
-        self.update_plot(x_data, y_data, z_data)
-        self.update_stats(self.sensor.mean_values, self.sensor.std_values)
-
         self.ui.pushButton.setText("Stop")
         self.ui.pushButton.setStyleSheet("background-color: red;")
-
 
     def stop_acquisition(self):
         if self.plot_worker:
@@ -191,50 +206,51 @@ class Lab1(QDialog):
         self.ui.pushButton.setText("Start")
         self.ui.pushButton.setStyleSheet("")
 
+    @pyqtSlot(np.ndarray, np.ndarray, np.ndarray)
     def update_plot(self, x_data, y_data, z_data):
         samples = np.arange(self.max_x)
-
-        # Stripchart: altijd de volledige breedte laten zien (scroll effect)
         self.x_line.set_data(samples, x_data[-self.max_x:])
         self.y_line.set_data(samples, y_data[-self.max_x:])
         self.z_line.set_data(samples, z_data[-self.max_x:])
-
         self.ui.MplWidget.canvas.axes.set_xlim(0, self.max_x)
         self.ui.MplWidget.canvas.draw()
 
-
+    @pyqtSlot(tuple, tuple)
     def update_stats(self, mean, std):
-            x_mean, y_mean, z_mean = mean
-            x_std, y_std, z_std = std
-
-            self.ui.meanXLabel.setText(f"X: {x_mean:.4f}")
-            self.ui.meanYLabel.setText(f"Y: {y_mean:.4f}")
-            self.ui.meanZLabel.setText(f"Z: {z_mean:.4f}")
-            self.ui.stdXLabel.setText(f"X: {x_std:.4f}")
-            self.ui.stdYLabel.setText(f"Y: {y_std:.4f}")
-            self.ui.stdZLabel.setText(f"Z: {z_std:.4f}")
+        x_mean, y_mean, z_mean = mean
+        x_std, y_std, z_std = std
+        self.ui.meanXLabel.setText(f"X: {x_mean:.4f}")
+        self.ui.meanYLabel.setText(f"Y: {y_mean:.4f}")
+        self.ui.meanZLabel.setText(f"Z: {z_mean:.4f}")
+        self.ui.stdXLabel.setText(f"X: {x_std:.4f}")
+        self.ui.stdYLabel.setText(f"Y: {y_std:.4f}")
+        self.ui.stdZLabel.setText(f"Z: {z_std:.4f}")
 
     def update_timer_interval(self):
         interval_ms = self.ui.interval.value() * 1000
-        # No timer needed since simulation is driven by QThread
+        self.timer.setInterval(interval_ms)
 
     def update_max_xaxis(self):
-        self.max_x = max(1, self.ui.maxxaxis.value())
+        self.max_x = self.ui.maxxaxis.value()
+        self.samples = np.arange(self.max_x)
         self.ui.MplWidget.canvas.axes.set_xlim(0, self.max_x)
-        self.ui.MplWidget.canvas.draw()
 
     def save_to_csv(self):
         filename, _ = QFileDialog.getSaveFileName(self, "Save Data to CSV", "", "CSV Files (*.csv)")
         if filename:
-            success = self.sensor.save_to_csv(filename)
-            if success:
-                print(f"Data saved to {filename}")
-            else:
-                print("Failed to save data.")
+            self.csv_worker = CsvSaveWorker(self.sensor, filename)
+            self.csv_worker.save_finished.connect(self.on_csv_save_finished)
+            self.csv_worker.start()
 
+    @pyqtSlot(bool, str)
+    def on_csv_save_finished(self, success, filename):
+        if success:
+            QMessageBox.information(self, "Success", f"Data saved to {filename}")
+        else:
+            QMessageBox.warning(self, "Error", f"Failed to save data to {filename}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = Lab1()
-    window.show()
+    form = Lab1()
+    form.show()
     sys.exit(app.exec_())
