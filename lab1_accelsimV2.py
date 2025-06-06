@@ -10,6 +10,7 @@ import time
 import csv
 import threading
 import numpy as np
+import matplotlib.pyplot as plt
 import math
 import random
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, QTimer
@@ -66,18 +67,26 @@ class SimulatedSensor:
             with open(filename, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow(['Sample', 'X', 'Y', 'Z'])
-                data = np.column_stack((np.arange(len(self._x_data)), self._x_data, self._y_data, self._z_data))
-                writer.writerows(data)
+                for i in range(len(self._x_data)):
+                    # afronden op 3 decimalen:
+                    row = [
+                        i,
+                        f"{self._x_data[i]:.3f}",
+                        f"{self._y_data[i]:.3f}",
+                        f"{self._z_data[i]:.3f}"
+                    ]
+                    writer.writerow(row)
             return True
         except Exception as e:
             print(f"Error saving to CSV: {e}")
             return False
 
+
 # Multi-threading for updating plot and statistics
 class PlotUpdateWorker(QThread):
     update_data = pyqtSignal(np.ndarray, np.ndarray, np.ndarray, tuple, tuple)
 
-    def __init__(self, sensor, interval_ms=100):
+    def __init__(self, sensor, interval_ms):
         super().__init__()
         self.sensor = sensor
         self.interval_ms = interval_ms
@@ -92,7 +101,8 @@ class PlotUpdateWorker(QThread):
             mean = self.sensor.mean_values
             std = self.sensor.std_values
             self.update_data.emit(x_data, y_data, z_data, mean, std)
-            self.msleep(100)
+            sleep_time = self.interval_ms if self.interval_ms > 0 else 100
+            self.msleep(sleep_time)
 
     def stop(self):
         self.running = False
@@ -156,7 +166,10 @@ class Lab1(QDialog):
             self.start_measurement()
 
     def start_measurement(self):
-        self.plot_worker = PlotUpdateWorker(self.sensor, self.ui.interval.value() * 1000)
+        self.sensor._x_data.fill(0)
+        self.sensor._y_data.fill(0)
+        self.sensor._z_data.fill(0)
+        self.plot_worker = PlotUpdateWorker(self.sensor,  self.current_interval_ms)
         self.plot_worker.update_data.connect(self.handle_update)
         self.plot_worker.start()
         self.ui.label_timer.setText("Measuring...")
@@ -183,10 +196,6 @@ class Lab1(QDialog):
         self.ui.maxxaxis.setEnabled(True)
         self.ui.mtime.setEnabled(True)
         self.ui.saveButton.setEnabled(True)
-        # Reset de data buffers van de sensor
-        self.sensor._x_data.fill(0)
-        self.sensor._y_data.fill(0)
-        self.sensor._z_data.fill(0)
 
         # Reset de grafieklijnen (stripchart)
         self.x_line.set_data([], [])
@@ -194,8 +203,7 @@ class Lab1(QDialog):
         self.z_line.set_data([], [])
 
     def update_timer_interval(self):
-        interval_ms = self.ui.interval.value() * 1000
-        self.timer.setInterval(interval_ms)
+       self.current_interval_ms = self.ui.interval.value() * 1000
 
     def update_max_xaxis(self):
         self.max_x = self.ui.maxxaxis.value()
@@ -203,27 +211,37 @@ class Lab1(QDialog):
 
     @pyqtSlot(np.ndarray, np.ndarray, np.ndarray, tuple, tuple)
     def handle_update(self, x_data, y_data, z_data, mean, std):
-        samples = np.arange(len(x_data[-self.max_x:]))
+        samples = np.arange(self.max_x)
         self.x_line.set_data(samples, x_data[-self.max_x:])
         self.y_line.set_data(samples, y_data[-self.max_x:])
         self.z_line.set_data(samples, z_data[-self.max_x:])
+        self.ui.MplWidget.canvas.axes.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, _: f"{val:.3f}"))
         self.ui.MplWidget.canvas.draw()
-        self.ui.meanXLabel.setText(f"X: {mean[0]:.4f}")
-        self.ui.meanYLabel.setText(f"Y: {mean[1]:.4f}")
-        self.ui.meanZLabel.setText(f"Z: {mean[2]:.4f}")
-        self.ui.stdXLabel.setText(f"X: {std[0]:.4f}")
-        self.ui.stdYLabel.setText(f"Y: {std[1]:.4f}")
-        self.ui.stdZLabel.setText(f"Z: {std[2]:.4f}")
+        self.ui.meanXLabel.setText(f"X: {mean[0]:.3f}")
+        self.ui.meanYLabel.setText(f"Y: {mean[1]:.3f}")
+        self.ui.meanZLabel.setText(f"Z: {mean[2]:.3f}")
+        self.ui.stdXLabel.setText(f"X: {std[0]:.3f}")
+        self.ui.stdYLabel.setText(f"Y: {std[1]:.3f}")
+        self.ui.stdZLabel.setText(f"Z: {std[2]:.3f}")
 
     def save_to_csv(self):
-        filename, _ = QFileDialog.getSaveFileName(self, "Save Data to CSV", "", "CSV Files (*.csv)")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save Data to CSV", 
+            os.path.expanduser("~/Downloads/accelerometer_data.csv"),
+            "CSV Files (*.csv);;All Files (*)")
         if filename:
+            self.ui.pushButton.setEnabled(False)  # Disable UI elements during save
+            self.ui.saveButton.setEnabled(False)
+            self.ui.label_timer.setText("Saving data to CSV...")
             self.csv_worker = CsvSaveWorker(self.sensor, filename)
             self.csv_worker.save_finished.connect(self.on_csv_save_finished)
             self.csv_worker.start()
 
     @pyqtSlot(bool, str)
     def on_csv_save_finished(self, success, filename):
+        self.ui.pushButton.setEnabled(True)
+        self.ui.saveButton.setEnabled(True)
+        self.ui.label_timer.setText("Status: Not Measuring")
         if success:
             QMessageBox.information(self, "Success", f"Data saved to {filename}")
         else:
