@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """
-This script controls an LED on an Arduino board using serial communication.
+ * Name student 1 : Nathaniel @@@@@@@@@@@@@@@@
+ * UvAnetID Student 1 : @@@@@@@@@@@@@@@@
+ *
+ * Name student 2 : Anton Smirnov
+ * UvAnetID Student 2 : 13272225
+ *
+ * Group 4 IoT
+ * Study : BSc Informatica
+ *
+ * Final version: LED Control with serial communication.
 """
 
 import serial

@@ -1,3 +1,17 @@
+#!/usr/bin/env python3
+"""
+ * Name student 1 : Nathaniel @@@@@@@@@@@@@@@@
+ * UvAnetID Student 1 : @@@@@@@@@@@@@@@@
+ *
+ * Name student 2 : Anton Smirnov
+ * UvAnetID Student 2 : 13272225
+ *
+ * Group 4 IoT
+ * Study : BSc Informatica
+ *
+ * Simple version: Accelerometer Data Visualization with real-time updates.
+"""
+
 import sys
 import random
 from PyQt5.QtWidgets import *

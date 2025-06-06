@@ -1,9 +1,9 @@
 // -------------------------------------------
 //
 //  Project: Lab1_task1 - Serial Communication with Python
-//  Group:
-//  Students:
-//  Date:
+//  Group: 4
+//  Students: Nathaniel @@@@@@@@@@@@@@@@, Anton Smirnov
+//  Date: 6-6-2025
 //  ------------------------------------------
 
 #define OFF 0
