@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Final version: Accelerometer Data Visualization with real-time updates, multithreading and UI features.
-Based on accelsimV2.py, adapted for real Arduino accelerometer data.
+Accelerometer Data Visualization with real-time updates, multithreading and UI features.
 """
 
 import sys
