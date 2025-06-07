@@ -2,7 +2,7 @@
 //
 //  Project: Lab1_task1 - Serial Communication with Python
 //  Group: 4
-//  Students: Nathaniel @@@@@@@@@@@@@@@@, Anton Smirnov
+//  Students: Nathaniel Kamperveen, Anton Smirnov
 //  Date: 6-6-2025
 //  ------------------------------------------
 
