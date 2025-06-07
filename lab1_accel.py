@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
- * Name student 1 : Nathaniel @@@@@@@@@@@@@@@@
- * UvAnetID Student 1 : @@@@@@@@@@@@@@@@
+ * Name student 1 : Nathaniel Kamperveen
+ * UvAnetID Student 1 : 15633888
  *
  * Name student 2 : Anton Smirnov
  * UvAnetID Student 2 : 13272225
@@ -252,22 +252,22 @@ class Lab1(QDialog):
         super().__init__()
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
-        self.setWindowTitle("Accelerometer Data Visualization - Real Sensor")
+        self.setWindowTitle("Accelerometer Data Visualization")
 
         self.sensor = AccelerometerSensor(buffer_size=100)
-        self.max_x = 10
         self.plot_worker = None
         self.csv_worker = None
         self.timer = QTimer()
         self.measurement_timer = QTimer()
         self.measurement_timer.setSingleShot(True)
         self.measurement_timer.timeout.connect(self.stop_measurement)
+        self.total_samples = 0
+        self.current_x_samples = []
 
         # Setup UI event connections
         self.ui.pushButton.clicked.connect(self.toggle_measurement)
         self.ui.saveButton.clicked.connect(self.save_to_csv)
         self.ui.interval.valueChanged.connect(self.update_timer_interval)
-        self.ui.maxxaxis.valueChanged.connect(self.update_max_xaxis)
         self.update_timer_interval()
         self.init_plot()
 
@@ -277,7 +277,7 @@ class Lab1(QDialog):
         """
         self.ui.MplWidget.canvas.axes.clear()
         self.ui.MplWidget.canvas.axes.set_title("Accelerometer Data")
-        self.ui.MplWidget.canvas.axes.set_xlim(0, self.max_x)
+        self.ui.MplWidget.canvas.axes.set_xlim(0, 10)
         self.ui.MplWidget.canvas.axes.set_ylim(-2, 2)
         self.ui.MplWidget.canvas.axes.grid(True)
         self.x_line, = self.ui.MplWidget.canvas.axes.plot([], [], 'r-', label='X-axis')
@@ -307,11 +307,14 @@ class Lab1(QDialog):
         else:
             self.ui.label_timer.setText(f"Status: Connected to {PORT}")
             self.sensor.start_reading()
-
+        if not hasattr(self, "sensor_initialized") or not self.sensor_initialized:
+            self.sensor_initialized = True
+            time.sleep(1)
+            self.sensor.stop_reading()
+            self.sensor.start_reading()
         # Reset data buffers
-        self.sensor._x_data.fill(0)
-        self.sensor._y_data.fill(0)
-        self.sensor._z_data.fill(0)
+        self.current_x_samples = []
+        self.total_samples = 0
         self.plot_worker = PlotUpdateWorker(self.sensor, self.current_interval_ms)
         self.plot_worker.update_data.connect(self.handle_update)
         self.plot_worker.start()
@@ -322,7 +325,6 @@ class Lab1(QDialog):
         self.ui.pushButton.setText("Stop")
         self.ui.pushButton.setStyleSheet("background-color: red;")
         self.ui.interval.setEnabled(False)
-        self.ui.maxxaxis.setEnabled(False)
         self.ui.mtime.setEnabled(False)
         self.ui.saveButton.setEnabled(True)
 
@@ -339,7 +341,6 @@ class Lab1(QDialog):
         self.ui.pushButton.setStyleSheet("")
         self.ui.label_timer.setText("Status: Not Measuring")
         self.ui.interval.setEnabled(True)
-        self.ui.maxxaxis.setEnabled(True)
         self.ui.mtime.setEnabled(True)
         self.ui.saveButton.setEnabled(True)
 
@@ -347,6 +348,7 @@ class Lab1(QDialog):
         self.x_line.set_data([], [])
         self.y_line.set_data([], [])
         self.z_line.set_data([], [])
+        self.plot_x = []
 
     def update_timer_interval(self):
         """
@@ -354,22 +356,24 @@ class Lab1(QDialog):
         """
         self.current_interval_ms = self.ui.interval.value() * 1000
 
-    def update_max_xaxis(self):
-        """
-        Adjusts the x-axis length on the plot.
-        """
-        self.max_x = self.ui.maxxaxis.value()
-        self.ui.MplWidget.canvas.axes.set_xlim(0, self.max_x)
 
     @pyqtSlot(np.ndarray, np.ndarray, np.ndarray, tuple, tuple)
     def handle_update(self, x_data, y_data, z_data, mean, std):
         """
         Updates plot lines and UI labels with new sensor data.
         """
-        samples = np.arange(len(x_data[-self.max_x:]))
-        self.x_line.set_data(samples, x_data[-self.max_x:])
-        self.y_line.set_data(samples, y_data[-self.max_x:])
-        self.z_line.set_data(samples, z_data[-self.max_x:])
+        self.total_samples += 1
+        if not hasattr(self, "plot_x"):
+            self.plot_x = []
+        self.plot_x.append(self.total_samples - 1)
+        if len(self.plot_x) > self.sensor._buffer_size:
+            self.plot_x = self.plot_x[-self.sensor._buffer_size:]
+        num_points = len(self.plot_x)
+
+        self.x_line.set_data(self.plot_x, x_data[-num_points:])
+        self.y_line.set_data(self.plot_x, y_data[-num_points:])
+        self.z_line.set_data(self.plot_x, z_data[-num_points:])
+        self.ui.MplWidget.canvas.axes.set_xlim(self.plot_x[0], self.plot_x[-1])
         self.ui.MplWidget.canvas.axes.yaxis.set_major_formatter(plt.FuncFormatter(lambda val, _: f"{val:.3f}"))
         self.ui.MplWidget.canvas.draw()
         self.ui.meanXLabel.setText(f"X: {mean[0]:.3f}")
