@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
- * Name student 1 : Nathaniel @@@@@@@@@@@@@@@@
- * UvAnetID Student 1 : @@@@@@@@@@@@@@@@
+ * Name student 1 : Nathaniel Kamperveen
+ * UvAnetID Student 1 : 15633888
  *
  * Name student 2 : Anton Smirnov
  * UvAnetID Student 2 : 13272225
